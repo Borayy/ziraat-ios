@@ -23,14 +23,35 @@ struct WebView: UIViewRepresentable {
         configuration.allowsInlineMediaPlayback = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
         
-        // Oyunların ve sayfaların ekrana tam oturmasını sağlayan viewport betiği
-        let viewportScript = """
-        var meta = document.createElement('meta');
-        meta.name = 'viewport';
-        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
-        document.getElementsByTagName('head')[0].appendChild(meta);
+        // iPhone 16 Plus ekranına tam oturtma: viewport ve CSS zorlama
+        let viewportAndCssScript = """
+        (function() {
+            var meta = document.querySelector('meta[name="viewport"]');
+            if (!meta) {
+                meta = document.createElement('meta');
+                meta.name = 'viewport';
+                document.head.appendChild(meta);
+            }
+            meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+
+            var style = document.createElement('style');
+            style.innerHTML = `
+                html, body {
+                    width: 100% !important;
+                    min-height: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    overflow-x: hidden !important;
+                    -webkit-text-size-adjust: 100% !important;
+                }
+                canvas, iframe {
+                    max-width: 100vw !important;
+                }
+            `;
+            document.head.appendChild(style);
+        })();
         """
-        let userScript = WKUserScript(source: viewportScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        let userScript = WKUserScript(source: viewportAndCssScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
         configuration.userContentController.addUserScript(userScript)
 
         let preferences = WKWebpagePreferences()
@@ -41,15 +62,15 @@ struct WebView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.isOpaque = false
-        webView.backgroundColor = .black
+        webView.backgroundColor = .clear
         
-        // Kenar boşluklarını sıfırla (Çentiğe kadar tam ekran)
+        // Çentiğe ve alt çizgiye kadar tam oturması için kenar boşluklarını sıfırla
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        webView.scrollView.bounces = false // Oyunlarda sayfanın aşağı yukarı yaylanmasını önler
+        webView.scrollView.bounces = false
         webView.allowsBackForwardNavigationGestures = true
 
-        // iPhone Mobil Tarayıcı Kimliği (Masaüstü açılmasını engeller)
-        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
+        // iPhone 16 Plus (iOS 18) Mobil User Agent
+        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
 
         context.coordinator.webView = webView
 
