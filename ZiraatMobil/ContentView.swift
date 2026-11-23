@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     // =========================================================================
-    // İSTEDİĞİNİZ LİNKİ BURADAN DEĞİŞTİREBİLİRSİNİZ:
+    // AÇILMASINI İSTEDİĞİNİZ OYUN VEYA SİTE LİNKİNİ BURAYA YAZIN:
     // =========================================================================
     let targetUrlString = "https://litvalya.com/zrt/"
 
@@ -13,28 +13,18 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Arka plan rengi
-            Color.white.edgesIgnoringSafeArea(.all)
+            Color.black.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                if let url = URL(string: targetUrlString) {
-                    WebView(
-                        url: url,
-                        action: $webViewAction,
-                        canGoBack: $canGoBack,
-                        canGoForward: $canGoForward,
-                        isLoading: $isLoading
-                    )
-                    .edgesIgnoringSafeArea(.bottom)
-                } else {
-                    Text("Geçersiz URL: \(targetUrlString)")
-                        .foregroundColor(.red)
-                }
+            if let url = URL(string: targetUrlString) {
+                WebView(
+                    url: url,
+                    action: $webViewAction,
+                    canGoBack: $canGoBack,
+                    canGoForward: $canGoForward,
+                    isLoading: $isLoading
+                )
+                .ignoresSafeArea() // Çentik ve alt çizgiyi tamamen kaplar
             }
         }
     }
-}
-
-#Preview {
-    ContentView()
 }
