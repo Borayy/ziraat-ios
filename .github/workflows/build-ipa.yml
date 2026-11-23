@@ -8,15 +8,11 @@ on:
 jobs:
   build:
     name: Build IPA
-    runs-on: macos-14
+    runs-on: macos-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Select Xcode
-        run: |
-          sudo xcode-select -switch /Applications/Xcode_15.4.app || sudo xcode-select -switch /Applications/Xcode.app
 
       - name: Build Archive
         run: |
