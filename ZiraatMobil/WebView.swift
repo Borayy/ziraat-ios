@@ -21,25 +21,35 @@ struct WebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = []
         
+        // Oyunların ve sayfaların ekrana tam oturmasını sağlayan viewport betiği
+        let viewportScript = """
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        """
+        let userScript = WKUserScript(source: viewportScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+        configuration.userContentController.addUserScript(userScript)
+
         let preferences = WKWebpagePreferences()
         preferences.allowsContentJavaScript = true
         configuration.defaultWebpagePreferences = preferences
-        
-        // Çerez ve yerel depolama desteği
         configuration.websiteDataStore = WKWebsiteDataStore.default()
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
+        webView.isOpaque = false
+        webView.backgroundColor = .black
         
-        // iOS'e özgü doğal kenardan kaydırarak geri/ileri gitme jesti
+        // Kenar boşluklarını sıfırla (Çentiğe kadar tam ekran)
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.scrollView.bounces = false // Oyunlarda sayfanın aşağı yukarı yaylanmasını önler
         webView.allowsBackForwardNavigationGestures = true
-        webView.scrollView.bounces = true
 
-        // Aşağı çekerek yenileme (Pull-to-refresh)
-        let refreshControl = UIRefreshControl()
-        refreshControl.addTarget(context.coordinator, action: #selector(Coordinator.handleRefreshControl(sender:)), for: .valueChanged)
-        webView.scrollView.refreshControl = refreshControl
+        // iPhone Mobil Tarayıcı Kimliği (Masaüstü açılmasını engeller)
+        webView.customUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1"
 
         context.coordinator.webView = webView
 
@@ -56,17 +66,11 @@ struct WebView: UIViewRepresentable {
             case .reload:
                 uiView.reload()
             case .goBack:
-                if uiView.canGoBack {
-                    uiView.goBack()
-                }
+                if uiView.canGoBack { uiView.goBack() }
             case .goForward:
-                if uiView.canGoForward {
-                    uiView.goForward()
-                }
+                if uiView.canGoForward { uiView.goForward() }
             }
-            DispatchQueue.main.async {
-                self.action = nil
-            }
+            DispatchQueue.main.async { self.action = nil }
         }
     }
 
@@ -74,18 +78,10 @@ struct WebView: UIViewRepresentable {
         var parent: WebView
         weak var webView: WKWebView?
 
-        init(_ parent: WebView) {
-            self.parent = parent
-        }
-
-        @objc func handleRefreshControl(sender: UIRefreshControl) {
-            webView?.reload()
-        }
+        init(_ parent: WebView) { self.parent = parent }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = true
-            }
+            DispatchQueue.main.async { self.parent.isLoading = true }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -93,35 +89,17 @@ struct WebView: UIViewRepresentable {
                 self.parent.isLoading = false
                 self.parent.canGoBack = webView.canGoBack
                 self.parent.canGoForward = webView.canGoForward
-                webView.scrollView.refreshControl?.endRefreshing()
             }
         }
 
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = false
-                webView.scrollView.refreshControl?.endRefreshing()
-            }
-        }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            DispatchQueue.main.async {
-                self.parent.isLoading = false
-                webView.scrollView.refreshControl?.endRefreshing()
-            }
-        }
-
-        // Tıklanan bağlantıların tarayıcı yerine uygulama içinde kalması veya tel/mailto yönlendirmesi
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
             guard let url = navigationAction.request.url else {
                 decisionHandler(.allow)
                 return
             }
-
             if url.scheme == "http" || url.scheme == "https" {
                 decisionHandler(.allow)
             } else {
-                // tel:, mailto:, sms: vb. harici şemalar
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
                 decisionHandler(.cancel)
             }
